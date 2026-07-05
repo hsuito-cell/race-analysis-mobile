@@ -1,0 +1,2244 @@
+<!doctype html>
+<!-- Copyright (C) 2026 Hiroshi Suito -->
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+    <title>Race Analysis App</title>
+    <style>
+      :root {
+        --bg: #0a0b0f;
+        --panel: #13151c;
+        --surf: #1c1f29;
+        --b1: #252838;
+        --b2: #353a50;
+        --tx: #e8eaf2;
+        --tx2: #7a7f9a;
+        --br: #f0f2ff;
+        --ac: #4af0a0;
+        --ac2: #4a9cf0;
+        --rd: #f04a4a;
+        --ff: "SF Mono", "Fira Code", monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: var(--tx);
+        font-family: var(--ff);
+        overflow: hidden;
+      }
+      button {
+        background: var(--surf);
+        border: 1px solid var(--b2);
+        color: var(--tx);
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: var(--ff);
+        transition: border-color 0.15s;
+      }
+      button:active {
+        opacity: 0.7;
+      }
+      input,
+      select {
+        background: var(--surf);
+        border: 1px solid var(--b2);
+        color: var(--tx);
+        font-family: var(--ff);
+        border-radius: 4px;
+        outline: none;
+      }
+      input:focus,
+      select:focus {
+        border-color: var(--ac);
+      }
+
+      /* topbar */
+      #topbar {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 0 8px;
+        height: 44px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--b1);
+        flex-shrink: 0;
+      }
+      #logo {
+        font-size: 0.55rem;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        color: var(--br);
+        white-space: nowrap;
+      }
+      #logo em {
+        color: var(--ac);
+        font-style: normal;
+      }
+      .tb-sep {
+        flex: 1;
+      }
+      #fps-wrap {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 0.55rem;
+        color: var(--tx2);
+      }
+      #fps-inp {
+        width: 42px;
+        height: 28px;
+        padding: 0 4px;
+        font-size: 0.65rem;
+        text-align: center;
+      }
+      #dist-sel {
+        height: 30px;
+        padding: 0 4px;
+        font-size: 0.58rem;
+        max-width: 86px;
+      }
+      #btn-live {
+        height: 30px;
+        padding: 0 7px;
+        font-size: 0.56rem;
+        font-weight: 700;
+        color: var(--rd);
+        border-color: var(--rd);
+        background: rgba(240, 74, 74, 0.08);
+        white-space: nowrap;
+      }
+      #btn-live.on {
+        background: rgba(240, 74, 74, 0.3);
+        color: #fff;
+      }
+
+      /* app layout */
+      #app {
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+      }
+      #main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      /* video */
+      #vp {
+        position: relative;
+        background: #000;
+        width: 100%;
+        flex-shrink: 0;
+        overflow: hidden;
+        max-height: 45dvh;
+      }
+      #ve {
+        width: 100%;
+        display: block;
+        min-height: 120px;
+        max-height: 45dvh;
+        object-fit: contain;
+        transform-origin: center center;
+        touch-action: none;
+      }
+      #dz {
+        position: absolute;
+        inset: 0;
+        z-index: 4;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 0.75rem;
+        color: var(--tx2);
+        cursor: pointer;
+        background: #000;
+      }
+      #dz-icon {
+        font-size: 2.2rem;
+      }
+      #tap-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        display: none;
+        cursor: pointer;
+      }
+      #live-badge {
+        display: none;
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        z-index: 6;
+        background: rgba(240, 74, 74, 0.85);
+        color: #fff;
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        padding: 3px 8px;
+        border-radius: 3px;
+        pointer-events: none;
+      }
+      /* controls */
+      #ctrl {
+        background: var(--panel);
+        border-top: 1px solid var(--b1);
+        padding: 8px 10px;
+        flex-shrink: 0;
+      }
+      .sr {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+      .ct {
+        font-size: 0.65rem;
+        color: var(--ac);
+        white-space: nowrap;
+        min-width: 58px;
+      }
+      .ct2 {
+        font-size: 0.58rem;
+        color: var(--tx2);
+        white-space: nowrap;
+        min-width: 40px;
+        text-align: right;
+      }
+      .sl-wrap {
+        flex: 1;
+      }
+      .sl {
+        width: 100%;
+        height: 30px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: var(--b1);
+        border-radius: 15px;
+        outline: none;
+      }
+      .sl::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--ac);
+        cursor: pointer;
+        border: 2px solid rgba(255, 255, 255, 0.15);
+      }
+      .btn-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .pb {
+        height: 46px;
+        width: 54px;
+        font-size: 1.3rem;
+        background: rgba(74, 240, 160, 0.12);
+        border-color: var(--ac);
+        color: var(--ac);
+      }
+      .sb {
+        height: 46px;
+        width: 46px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--tx2);
+      }
+      .sb:active {
+        color: var(--ac);
+        border-color: var(--ac);
+      }
+      #btn-rec {
+        flex: 1;
+        height: 46px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        background: rgba(240, 74, 74, 0.12);
+        border-color: var(--rd);
+        color: var(--rd);
+      }
+      #btn-rec.flash {
+        background: rgba(240, 74, 74, 0.4);
+      }
+      .fi-wrap {
+        display: flex;
+        gap: 8px;
+      }
+      .fii {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .fil {
+        font-size: 0.42rem;
+        color: var(--tx2);
+        letter-spacing: 0.06em;
+      }
+      .fiv {
+        font-size: 0.65rem;
+        color: var(--br);
+      }
+
+      /* live controls */
+      #live-ctrl {
+        display: none;
+        background: var(--panel);
+        border-top: 1px solid var(--b1);
+        padding: 8px 10px;
+        flex-shrink: 0;
+      }
+      .lv-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      #lv-timer {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--tx2);
+      }
+      #lv-timer.rec {
+        color: var(--rd);
+      }
+      #lv-count {
+        font-size: 0.6rem;
+        color: var(--tx2);
+      }
+      #lv-count em {
+        font-style: normal;
+        font-weight: 700;
+        color: var(--ac);
+      }
+      #btn-lv-rec {
+        height: 54px;
+        min-width: 112px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        background: rgba(240, 74, 74, 0.12);
+        border-color: var(--rd);
+        color: var(--rd);
+      }
+      #btn-lv-rec.on {
+        background: rgba(240, 74, 74, 0.35);
+        color: #fff;
+      }
+      #btn-lv-mark {
+        flex: 1;
+        height: 54px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        background: rgba(74, 240, 160, 0.12);
+        border-color: var(--ac);
+        color: var(--ac);
+      }
+      #btn-lv-mark.flash {
+        background: rgba(74, 240, 160, 0.4);
+      }
+      #lv-after {
+        display: none;
+        margin-top: 8px;
+        gap: 8px;
+      }
+      #lv-after button {
+        flex: 1;
+        height: 40px;
+        font-size: 0.66rem;
+        font-weight: 700;
+      }
+      #btn-lv-analyze {
+        background: rgba(74, 156, 240, 0.12);
+        border-color: var(--ac2);
+        color: var(--ac2);
+      }
+
+      /* bottom records */
+      #bottom {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        background: var(--panel);
+        border-top: 1px solid var(--b1);
+        overflow: hidden;
+        padding-bottom: 50px;
+      }
+      .rh {
+        display: flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-bottom: 1px solid var(--b1);
+        flex-shrink: 0;
+        gap: 6px;
+      }
+      .rht {
+        font-size: 0.52rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        color: var(--tx2);
+      }
+      .rhc {
+        font-size: 0.52rem;
+        background: var(--ac);
+        color: #000;
+        font-weight: 700;
+        border-radius: 8px;
+        padding: 1px 6px;
+        min-width: 18px;
+        text-align: center;
+      }
+      .rha {
+        display: flex;
+        gap: 4px;
+        margin-left: auto;
+      }
+      #rec-cols {
+        display: flex;
+        gap: 6px;
+        padding: 3px 42px 3px 8px;
+        font-size: 0.42rem;
+        color: var(--tx2);
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--b1);
+        flex-shrink: 0;
+      }
+      #rec-cols span:nth-child(1) {
+        min-width: 20px;
+        text-align: right;
+      }
+      #rec-cols span:nth-child(2) {
+        min-width: 40px;
+      }
+      #rec-cols span:nth-child(3) {
+        min-width: 44px;
+      }
+      #rec-cols span:nth-child(4) {
+        flex: 1;
+        text-align: right;
+      }
+      #rec-cols span:nth-child(5) {
+        min-width: 58px;
+        text-align: right;
+      }
+
+      #rec-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 6px 8px 8px;
+      }
+      .rec-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 8px;
+        background: var(--surf);
+        border-radius: 5px;
+        margin-bottom: 4px;
+        border: 1px solid var(--b1);
+        cursor: pointer;
+        user-select: none;
+      }
+      .rec-item:active {
+        background: var(--b2);
+      }
+      .rec-item.sf {
+        border-color: var(--ac2);
+      }
+      .ri-idx {
+        font-size: 0.55rem;
+        color: var(--tx2);
+        min-width: 20px;
+        text-align: right;
+      }
+      .ri-lbl {
+        font-size: 0.58rem;
+        color: var(--ac2);
+        min-width: 40px;
+      }
+      .ri-frame {
+        font-size: 0.58rem;
+        color: var(--tx2);
+        min-width: 44px;
+      }
+      .ri-time {
+        flex: 1;
+        font-size: 0.68rem;
+        color: var(--br);
+        text-align: right;
+      }
+      .ri-lap {
+        font-size: 0.6rem;
+        color: var(--ac);
+        min-width: 58px;
+        text-align: right;
+      }
+      .ri-del {
+        width: 26px;
+        height: 26px;
+        font-size: 0.62rem;
+        color: var(--rd);
+        border: none;
+        background: transparent;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      #rec-actions {
+        display: flex;
+        gap: 6px;
+        padding: 6px 10px;
+        border-top: 1px solid var(--b1);
+        flex-wrap: nowrap;
+        background: var(--panel);
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 20;
+      }
+      #rec-actions button {
+        height: 36px;
+        padding: 0 10px;
+        font-size: 0.6rem;
+        white-space: nowrap;
+      }
+      #btn-time-open {
+        display: none;
+        position: relative;
+      }
+      #btn-time-badge {
+        display: none;
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: var(--ac);
+        color: #000;
+        font-size: 0.42rem;
+        font-weight: 700;
+        border-radius: 8px;
+        padding: 1px 4px;
+        pointer-events: none;
+        line-height: 1.4;
+      }
+
+      /* modal bottom sheet */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 500;
+        align-items: flex-end;
+        justify-content: center;
+        pointer-events: none;
+      }
+      .modal-overlay.open {
+        display: flex;
+        pointer-events: auto;
+      }
+      .modal-sheet {
+        background: var(--panel);
+        border: 1px solid var(--b2);
+        border-radius: 14px 14px 0 0;
+        width: 100%;
+        max-height: 88dvh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 -4px 30px #0008;
+      }
+      .modal-handle {
+        width: 36px;
+        height: 4px;
+        background: var(--b2);
+        border-radius: 2px;
+        margin: 10px auto 0;
+        flex-shrink: 0;
+      }
+      .modal-header {
+        display: flex;
+        align-items: center;
+        padding: 10px 14px 8px;
+        border-bottom: 1px solid var(--b1);
+        flex-shrink: 0;
+      }
+      .modal-title {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--br);
+        flex: 1;
+      }
+      .modal-close {
+        width: 30px;
+        height: 30px;
+        font-size: 0.85rem;
+        border: 1px solid var(--b2);
+        background: var(--surf);
+        color: var(--tx2);
+        border-radius: 4px;
+      }
+
+      /* time modal */
+      #time-modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 14px;
+      }
+      .tm-lane-block {
+        border: 1px solid var(--b2);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .tm-lane-hdr {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        background: var(--surf);
+        border-bottom: 1px solid var(--b1);
+      }
+      .tm-lane-name {
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 3px;
+      }
+      .tm-lane-prog {
+        font-size: 0.55rem;
+        color: var(--tx2);
+        margin-left: auto;
+      }
+      .tm-lane-prog em {
+        font-style: normal;
+        font-weight: 700;
+        color: var(--ac);
+      }
+      .tp-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 12px;
+        padding: 10px;
+      }
+      .tp-row {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .tp-lbl {
+        font-size: 0.55rem;
+        color: var(--tx2);
+      }
+      .tp-inp {
+        width: 100%;
+        padding: 7px 8px;
+        font-size: 0.82rem;
+        border: 1px solid var(--b2);
+      }
+      .tp-inp:focus {
+        border-color: var(--ac);
+      }
+      .tp-inp.filled {
+        border-color: rgba(74, 240, 160, 0.5);
+      }
+      .tm-footer {
+        padding: 10px 14px;
+        border-top: 1px solid var(--b1);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .tm-progress {
+        font-size: 0.6rem;
+        color: var(--tx2);
+        flex: 1;
+      }
+      .tm-progress em {
+        color: var(--ac);
+        font-style: normal;
+        font-weight: 700;
+      }
+
+      /* graph modal */
+      #graph-modal-overlay {
+        align-items: center;
+      }
+      #graph-sheet {
+        background: var(--panel);
+        border: 1px solid var(--b2);
+        border-radius: 14px;
+        width: min(480px, 96vw);
+        max-height: 88dvh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 8px 40px #000c;
+      }
+      .gm-body {
+        flex: 1;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+      }
+      #graph-canvas {
+        max-width: 100%;
+        border-radius: 4px;
+      }
+      #graph-tooltip {
+        display: none;
+        position: absolute;
+        pointer-events: none;
+        background: rgba(13, 14, 18, 0.95);
+        border: 1px solid var(--b2);
+        border-radius: 4px;
+        padding: 6px 10px;
+        font-size: 0.72rem;
+        color: var(--br);
+        white-space: nowrap;
+        box-shadow: 0 2px 12px #0008;
+        z-index: 10;
+        line-height: 1.7;
+      }
+      .gm-footer {
+        padding: 8px 14px;
+        border-top: 1px solid var(--b1);
+        flex-shrink: 0;
+      }
+
+      /* toast */
+      #toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(28, 31, 41, 0.97);
+        border: 1px solid var(--b2);
+        color: var(--br);
+        padding: 8px 18px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+        z-index: 999;
+      }
+      #toast.show {
+        opacity: 1;
+      }
+
+      .lc0 {
+        color: #4af0a0;
+      }
+      .lc1 {
+        color: #f0a04a;
+      }
+      .lc2 {
+        color: #4a9cf0;
+      }
+      .lc3 {
+        color: #c97cf7;
+      }
+      .lc4 {
+        color: #4fcfef;
+      }
+      .lc5 {
+        color: #f7c94f;
+      }
+      .lc6 {
+        color: #e74c3c;
+      }
+      .lc7 {
+        color: #5dade2;
+      }
+      .lc8 {
+        color: #58d68d;
+      }
+      .lc9 {
+        color: #aab7b8;
+      }
+      /* ===== LIVE時 動画拡大 ===== */
+
+      #vp.live-view {
+        max-height: 72dvh; /* 修正: 00dvh(=0)だと映像が消える */
+      }
+
+      #vp.live-view #ve {
+        max-height: 72dvh; /* LIVE操作バーと記録リストの余地を残す */
+      }
+
+      /* ===== ピンチズーム用 ===== */
+
+      #ve {
+        transform-origin: center center;
+      }
+      /* タッチは常に前面のtap-overlayが受けるため, ジェスチャ制御もこちらで行う */
+      #tap-overlay {
+        touch-action: none;
+      }
+
+      /* ===== LIVE録画ボタン ===== */
+
+      #live-rec-float {
+        display: none;
+
+        position: absolute;
+
+        right: 15px;
+        bottom: 15px;
+
+        width: 80px;
+        height: 80px;
+
+        border-radius: 50%;
+
+        z-index: 30;
+
+        background: rgba(240, 74, 74, 0.85);
+
+        color: white;
+
+        border: 3px solid rgba(255, 255, 255, 0.5);
+
+        font-size: 0.9rem;
+
+        font-weight: 700;
+
+        box-shadow: 0 2px 14px #000a;
+      }
+      #live-rec-float.on {
+        background: rgba(240, 74, 74, 1);
+        animation: recPulse 1.2s ease-in-out infinite;
+      }
+      @keyframes recPulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(240, 74, 74, 0.5);
+        }
+        50% {
+          box-shadow: 0 0 0 10px rgba(240, 74, 74, 0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="topbar">
+        <span id="logo">RACE <em>ANALYSIS</em></span>
+        <span class="tb-sep"></span>
+        <div id="fps-wrap">FPS:<input type="number" id="fps-inp" value="60" min="1" max="240" step="any" /></div>
+        <select id="dist-sel">
+          <option value="">距離: なし</option>
+          <option value="50">50m</option>
+          <option value="100">100m</option>
+          <option value="200">200m</option>
+          <option value="400">400m</option>
+          <option value="800">800m</option>
+          <option value="1500">1500m</option>
+        </select>
+        <button id="btn-live">📹 LIVE</button>
+      </div>
+
+      <div id="main">
+        <div id="vp">
+          <video id="ve" preload="metadata" playsinline webkit-playsinline></video>
+          <label id="dz" for="fi"
+            ><div id="dz-icon">🎬</div>
+            <div>タップして動画を読み込む</div>
+            <div style="font-size: 0.6rem">（右上の LIVE でカメラ撮影＋リアルタイム分析）</div></label
+          >
+          <div id="tap-overlay"></div>
+          <div id="live-badge">● LIVE</div>
+          <button id="live-rec-float">⏺ REC</button>
+        </div>
+
+        <div id="ctrl">
+          <div class="sr">
+            <div class="ct" id="ctd">0:00.000</div>
+            <div class="sl-wrap"><input type="range" class="sl" id="sl" min="0" max="10000" value="0" /></div>
+            <div class="ct2" id="ctd2">0:00</div>
+          </div>
+          <div class="btn-row">
+            <button class="pb" id="playbtn">▶</button>
+            <button class="sb" id="btn-p1">◀1f</button>
+            <button class="sb" id="btn-n1">1f▶</button>
+            <button id="btn-rec">⏺ 記録</button>
+            <div class="fi-wrap">
+              <div class="fii"><span class="fil">FRAME</span><span class="fiv" id="hf">—</span></div>
+              <div class="fii"><span class="fil">TIME</span><span class="fiv" id="ht">—</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="live-ctrl">
+          <div class="lv-row">
+            <span id="lv-timer">0:00.000</span>
+            <span id="lv-count">MARK <em>0</em></span>
+          </div>
+          <div class="btn-row">
+            <button id="btn-lv-rec">⏺ 撮影開始</button>
+            <button id="btn-lv-mark">MARK</button>
+          </div>
+          <div class="btn-row" id="lv-after">
+            <button id="btn-lv-save">💾 動画保存</button>
+            <button id="btn-lv-analyze">📊 解析へ（フレーム変換）</button>
+          </div>
+        </div>
+
+        <div id="bottom">
+          <div class="rh">
+            <span class="rht">RECORDS</span>
+            <span class="rhc" id="rec-count">0</span>
+            <div class="rha">
+              <button style="font-size: 0.56rem; height: 26px; padding: 0 7px" id="btn-load-csv">📥 CSV読込</button>
+              <button style="font-size: 0.56rem; height: 26px; padding: 0 7px; color: var(--rd)" id="btn-clear-all">✕ ALL</button>
+            </div>
+          </div>
+          <div id="rec-cols"><span>No</span><span>ラベル</span><span>Frame</span><span>経過時間</span><span>区間(Split)</span></div>
+          <div id="rec-list"></div>
+          <div id="rec-actions">
+            <button id="btn-save-csv">💾 CSV保存</button>
+            <button id="btn-graph">📈 グラフ</button>
+            <button id="btn-time-open">⏱ タイム入力<span id="btn-time-badge"></span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <input type="file" id="fi" accept="video/*" style="display: none" />
+    <input type="file" id="csvfi" accept=".csv" style="display: none" />
+
+    <!-- タイム入力モーダル -->
+    <div class="modal-overlay" id="time-modal-overlay">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+          <span class="modal-title">⏱ 公式タイム入力</span>
+          <button class="modal-close" id="tm-close-btn">✕</button>
+        </div>
+        <div id="time-modal-body"><div id="tp-fields"></div></div>
+        <div class="tm-footer">
+          <span class="tm-progress" id="tm-progress"></span>
+          <button style="height: 38px; padding: 0 20px; font-size: 0.75rem; background: var(--ac); border-color: var(--ac); color: #000; font-weight: 700" id="tm-done-btn">完了</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- グラフモーダル -->
+    <div class="modal-overlay" id="graph-modal-overlay" style="align-items: center">
+      <div id="graph-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+          <span class="modal-title">📈 ラップタイム</span>
+          <button class="modal-close" id="gm-close-btn">✕</button>
+        </div>
+        <div class="gm-body">
+          <canvas id="graph-canvas"></canvas>
+          <div id="graph-tooltip"></div>
+        </div>
+        <div class="gm-footer"><span id="gm-info" style="font-size: 0.58rem; color: var(--tx2)"></span></div>
+      </div>
+    </div>
+
+    <div id="confirm-dialog" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 600; align-items: center; justify-content: center">
+      <div style="background: var(--panel); border: 1px solid var(--b2); border-radius: 10px; padding: 20px 20px 14px; width: min(280px, 88vw); box-shadow: 0 8px 30px #000a">
+        <div style="font-size: 0.78rem; color: var(--br); margin-bottom: 16px; text-align: center">全記録を削除しますか？</div>
+        <div style="display: flex; gap: 8px; justify-content: center">
+          <button id="confirm-cancel" style="flex: 1; height: 38px; font-size: 0.7rem">キャンセル</button>
+          <button id="confirm-ok" style="flex: 1; height: 38px; font-size: 0.7rem; background: rgba(240, 74, 74, 0.2); border-color: var(--rd); color: var(--rd); font-weight: 700">削除</button>
+        </div>
+      </div>
+    </div>
+    <div id="toast"></div>
+
+    <script>
+      const G = (id) => document.getElementById(id);
+
+      // ── State ──
+      let vW = 0,
+        totalFrames = 0,
+        nativeFps = 60;
+      let playing = false,
+        rafId = null;
+      let currentFrame = 0,
+        _seekGen = 0;
+      let _fpsDetected = false,
+        _confirmedMediaTime = -1,
+        _detToken = 0;
+      let markedFrames = [];
+      let currentFileName = "";
+      let selectedDist = "";
+      let timeValues = {};
+      let _objUrl = null;
+
+      // LIVE mode state
+      let liveMode = false,
+        mediaStream = null,
+        mediaRecorder = null;
+      let recChunks = [],
+        recStartT = 0,
+        recording = false,
+        recordedBlob = null;
+      let liveMarks = [];
+      let _prevHadVideo = false,
+        _prevFrame = 0;
+
+      const ve = G("ve"),
+        sl = G("sl"),
+        fpsEl = G("fps-inp");
+      // ── ピンチズーム＋パン（tap-overlay上で処理） ──
+      // 修正: 旧実装は #ve にリスナーを付けていたが, 前面の #tap-overlay が
+      // タッチを奪うため動作せず, さらに2本指操作の終了で誤タップ(誤MARK)が発生していた
+      let zoomScale = 1,
+        panX = 0,
+        panY = 0;
+      let _pinchD = 0,
+        _lastT = null,
+        _gestureMoved = false,
+        _lastTouchTs = 0;
+
+      function getDistance(t1, t2) {
+        return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      }
+      function applyZoom() {
+        // パン量はズーム分の余白内に制限
+        const r = ve.getBoundingClientRect();
+        const mx = ((zoomScale - 1) * r.width) / 2;
+        const my = ((zoomScale - 1) * r.height) / 2;
+        panX = Math.max(-mx, Math.min(mx, panX));
+        panY = Math.max(-my, Math.min(my, panY));
+        ve.style.transform = `translate(${panX}px,${panY}px) scale(${zoomScale})`;
+      }
+      function resetZoom() {
+        zoomScale = 1;
+        panX = 0;
+        panY = 0;
+        ve.style.transform = "translate(0px,0px) scale(1)";
+      }
+
+      const ovEl = G("tap-overlay");
+      ovEl.addEventListener(
+        "touchstart",
+        (e) => {
+          _lastTouchTs = Date.now();
+          if (e.touches.length === 2) {
+            _pinchD = getDistance(e.touches[0], e.touches[1]);
+            _gestureMoved = true; // 2本指はタップ扱いにしない
+          } else if (e.touches.length === 1) {
+            _lastT = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            _gestureMoved = false;
+          }
+        },
+        { passive: true },
+      );
+      ovEl.addEventListener(
+        "touchmove",
+        (e) => {
+          if (e.touches.length === 2) {
+            const d = getDistance(e.touches[0], e.touches[1]);
+            if (_pinchD) {
+              zoomScale = Math.max(1, Math.min(4, (zoomScale * d) / _pinchD));
+              applyZoom();
+            }
+            _pinchD = d;
+            _gestureMoved = true;
+            e.preventDefault();
+          } else if (e.touches.length === 1 && _lastT) {
+            const t = e.touches[0];
+            const dx = t.clientX - _lastT.x,
+              dy = t.clientY - _lastT.y;
+            if (Math.hypot(dx, dy) > 8) _gestureMoved = true;
+            if (zoomScale > 1) {
+              // ズーム中は1本指ドラッグでパン
+              panX += dx;
+              panY += dy;
+              applyZoom();
+              _lastT = { x: t.clientX, y: t.clientY };
+              e.preventDefault();
+            }
+          }
+        },
+        { passive: false },
+      );
+      ovEl.addEventListener("touchend", (e) => {
+        _lastTouchTs = Date.now();
+        if (e.touches.length === 0) {
+          // 移動もピンチもしていない純粋なタップのみ tapAction
+          if (!_gestureMoved) {
+            e.preventDefault();
+            tapAction();
+          }
+          _pinchD = 0;
+          _lastT = null;
+          _gestureMoved = false;
+        } else {
+          _pinchD = 0; // 2本→1本になった場合など
+        }
+      });
+
+      const DIST_LABELS = {
+        50: ["15m", "ST1S", "ST1E", "25m", "ST2S", "ST2E", "35m", "ST3S", "ST3E", "45m"],
+        100: ["15m", "ST1S", "ST1E", "25m", "ST2S", "ST2E", "35m", "ST3S", "ST3E", "45m", "65m", "ST4S", "ST4E", "75m", "ST5S", "ST5E", "85m", "ST6S", "ST6E", "95m"],
+        200: ["15m", "ST1S", "ST1E", "25m", "ST2S", "ST2E", "45m", "65m", "ST3S", "ST3E", "75m", "ST4S", "ST4E", "95m", "115m", "ST5S", "ST5E", "125m", "ST6S", "ST6E", "145m", "165m", "ST7S", "ST7E", "175m", "ST8S", "ST8E", "195m"],
+        400: ["15m", "ST1S", "ST1E", "45m", "65m", "ST2S", "ST2E", "95m", "115m", "ST3S", "ST3E", "145m", "ST4S", "ST4E", "195m", "215m", "ST5S", "ST5E", "225m", "ST6S", "ST6E", "245m", "265m", "ST7S", "ST7E", "295m", "315m", "ST8S", "ST8E", "345m", "ST9S", "ST9E", "365m", "ST10S", "ST10E", "395m"],
+        800: [
+          "15m",
+          "ST1S",
+          "ST1E",
+          "45m",
+          "65m",
+          "ST2S",
+          "ST2E",
+          "95m",
+          "115m",
+          "ST3S",
+          "ST3E",
+          "145m",
+          "ST4S",
+          "ST4E",
+          "195m",
+          "315m",
+          "ST5S",
+          "ST5E",
+          "325m",
+          "ST6S",
+          "ST6E",
+          "345m",
+          "365m",
+          "ST7S",
+          "ST7E",
+          "395m",
+          "615m",
+          "ST8S",
+          "ST8E",
+          "645m",
+          "ST9S",
+          "ST9E",
+          "665m",
+          "ST10S",
+          "ST10E",
+          "695m",
+          "715m",
+          "ST11S",
+          "ST11E",
+          "745m",
+          "765m",
+          "ST12S",
+          "ST12E",
+          "795m",
+        ],
+        1500: [
+          "15m",
+          "ST1S",
+          "ST1E",
+          "45m",
+          "65m",
+          "ST2S",
+          "ST2E",
+          "95m",
+          "115m",
+          "ST3S",
+          "ST3E",
+          "145m",
+          "ST4S",
+          "ST4E",
+          "195m",
+          "515m",
+          "ST5S",
+          "ST5E",
+          "525m",
+          "ST6S",
+          "ST6E",
+          "545m",
+          "565m",
+          "ST7S",
+          "ST7E",
+          "595m",
+          "1015m",
+          "ST8S",
+          "ST8E",
+          "1045m",
+          "ST9S",
+          "ST9E",
+          "1065m",
+          "ST10S",
+          "ST10E",
+          "1095m",
+          "1415m",
+          "ST11S",
+          "ST11E",
+          "1445m",
+          "1465m",
+          "ST12S",
+          "ST12E",
+          "1495m",
+        ],
+      };
+      const TIME_FIELDS = {
+        50: ["RT", "50m"],
+        100: ["RT", "50m", "100m"],
+        200: ["RT", "50m", "100m", "150m", "200m"],
+        400: ["RT", "50m", "100m", "150m", "200m", "250m", "300m", "350m", "400m"],
+        800: ["RT", "50m", "100m", "150m", "200m", "250m", "300m", "350m", "400m", "450m", "500m", "550m", "600m", "650m", "700m", "750m", "800m"],
+        1500: ["RT", "50m", "100m", "150m", "200m", "250m", "300m", "350m", "400m", "450m", "500m", "550m", "600m", "650m", "700m", "750m", "800m", "850m", "900m", "950m", "1000m", "1050m", "1100m", "1150m", "1200m", "1250m", "1300m", "1350m", "1400m", "1450m", "1500m"],
+      };
+
+      const LANE_COLORS = ["#4af0a0", "#f0a04a", "#4a9cf0", "#c97cf7", "#4fcfef", "#f7c94f", "#e74c3c", "#5dade2", "#58d68d", "#aab7b8"];
+
+      function getFPS() {
+        return Math.max(0.001, parseFloat(fpsEl.value) || nativeFps || 60);
+      }
+      // 修正: 59.9996秒などで "0:60.000" と表示される丸めバグを解消
+      function fmtSec(s) {
+        if (!isFinite(s) || s < 0) s = 0;
+        let ms = Math.round(s * 1000);
+        const m = Math.floor(ms / 60000);
+        ms -= m * 60000;
+        const sec = ms / 1000;
+        return m + ":" + (sec < 10 ? "0" : "") + sec.toFixed(3);
+      }
+      function ts() {
+        const d = new Date();
+        const p = (n) => String(n).padStart(2, "0");
+        return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+      }
+
+      // ── Video ──
+      function startFpsDetect() {
+        if (!("requestVideoFrameCallback" in HTMLVideoElement.prototype)) return;
+        const tok = ++_detToken;
+        let lastMT = -1;
+        function det(now, meta) {
+          if (tok !== _detToken) return; // 新しい動画読込/LIVE開始で旧チェーンを停止
+          if (_confirmedMediaTime === meta.mediaTime) {
+            ve.requestVideoFrameCallback(det);
+            return;
+          }
+          _confirmedMediaTime = meta.mediaTime;
+          if (lastMT >= 0 && !_fpsDetected) {
+            const d = meta.mediaTime - lastMT;
+            if (d > 0.005 && d < 0.1) {
+              const s = [24, 25, 30, 48, 50, 60, 90, 120, 240].reduce((a, b) => (Math.abs(b - 1 / d) < Math.abs(a - 1 / d) ? b : a));
+              _fpsDetected = true;
+              nativeFps = s;
+              fpsEl.value = s;
+              totalFrames = Math.max(1, Math.round(ve.duration * nativeFps));
+              G("ctd2").textContent = fmtSec(totalFrames / getFPS());
+              updateHUD();
+              refreshRecords();
+            }
+          }
+          lastMT = meta.mediaTime;
+          ve.requestVideoFrameCallback(det);
+        }
+        ve.requestVideoFrameCallback(det);
+      }
+
+      function loadVideoFromURL(url, name, cb) {
+        if (_objUrl && _objUrl !== url) {
+          try {
+            URL.revokeObjectURL(_objUrl);
+          } catch (_) {}
+        } // メモリリーク対策
+        _objUrl = url;
+        currentFileName = name;
+        vW = 0;
+        _fpsDetected = false;
+        resetZoom();
+        ve.srcObject = null;
+        ve.muted = false;
+        ve.src = url;
+        ve.load();
+        ve.onloadedmetadata = () => {
+          const fin = () => {
+            vW = ve.videoWidth;
+            if (!_fpsDetected) nativeFps = getFPS();
+            totalFrames = Math.max(1, Math.round(ve.duration * nativeFps));
+            G("ctd2").textContent = fmtSec(totalFrames / getFPS());
+            G("dz").style.display = "none";
+            G("tap-overlay").style.display = "block";
+            seekToFrame(0);
+            startFpsDetect();
+            if (cb) cb();
+            else showToast("動画を読み込みました");
+          };
+          // MediaRecorder録画のwebm等はduration=Infinityになるため補正
+          if (!isFinite(ve.duration) || ve.duration <= 0) {
+            const onDur = () => {
+              if (isFinite(ve.duration) && ve.duration > 0) {
+                ve.removeEventListener("durationchange", onDur);
+                ve.currentTime = 0;
+                fin();
+              }
+            };
+            ve.addEventListener("durationchange", onDur);
+            ve.currentTime = 1e7;
+          } else fin();
+        };
+      }
+      function loadVideo(file) {
+        loadVideoFromURL(URL.createObjectURL(file), file.name.replace(/\.[^.]+$/, ""));
+      }
+      function frameToTime(f) {
+        return (f + 0.5) / nativeFps;
+      }
+      function timeToFrame(t) {
+        return Math.round(t * nativeFps);
+      }
+      function seekToFrame(f) {
+        if (!vW) return;
+        currentFrame = Math.max(0, Math.min(totalFrames - 1, f));
+        const gen = ++_seekGen;
+        if ("requestVideoFrameCallback" in HTMLVideoElement.prototype) {
+          ve.requestVideoFrameCallback((now, meta) => {
+            if (gen !== _seekGen) return;
+            currentFrame = timeToFrame(meta.mediaTime);
+            updateHUD();
+          });
+        }
+        ve.currentTime = frameToTime(currentFrame);
+        updateHUD();
+      }
+      function updateHUD() {
+        sl.value = totalFrames > 1 ? Math.round((currentFrame / (totalFrames - 1)) * 10000) : 0;
+        G("ctd").textContent = fmtSec(currentFrame / getFPS());
+        G("hf").textContent = currentFrame;
+        G("ht").textContent = (currentFrame / getFPS()).toFixed(3) + "s";
+      }
+
+      // FPS手入力変更時に表示時間・区間時間を再計算（修正: 従来は反映されなかった）
+      fpsEl.addEventListener("change", () => {
+        if (liveMode) return;
+        if (vW) {
+          if (!_fpsDetected) {
+            nativeFps = getFPS();
+            totalFrames = Math.max(1, Math.round(ve.duration * nativeFps));
+          }
+          G("ctd2").textContent = fmtSec(totalFrames / getFPS());
+          updateHUD();
+        }
+        refreshRecords();
+      });
+
+      // ── Playback ──
+      function togglePlay() {
+        if (!vW || liveMode) return;
+        playing ? stopPlay() : startPlay();
+      }
+      function startPlay() {
+        playing = true;
+        G("playbtn").textContent = "⏸";
+        ve.play();
+        function loop() {
+          if (!playing) return;
+          if ("requestVideoFrameCallback" in HTMLVideoElement.prototype) {
+            ve.requestVideoFrameCallback((now, meta) => {
+              if (!playing) return;
+              currentFrame = timeToFrame(meta.mediaTime);
+              updateHUD();
+              loop();
+            });
+          } else {
+            currentFrame = timeToFrame(ve.currentTime);
+            updateHUD();
+            rafId = requestAnimationFrame(loop);
+          }
+        }
+        loop();
+      }
+      function stopPlay() {
+        playing = false;
+        G("playbtn").textContent = "▶";
+        ve.pause();
+        cancelAnimationFrame(rafId);
+      }
+      G("playbtn").addEventListener("click", togglePlay);
+      G("playbtn").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        togglePlay();
+      });
+
+      // ── Slider ──
+      sl.addEventListener("input", () => {
+        if (!vW) return;
+        if (playing) stopPlay();
+        seekToFrame(Math.round((sl.value / 10000) * (totalFrames - 1)));
+      });
+      sl.addEventListener("touchstart", (e) => e.stopPropagation(), { passive: true });
+
+      // ── File open ──
+      G("fi").onchange = () => {
+        if (G("fi").files[0]) loadVideo(G("fi").files[0]);
+        G("fi").value = "";
+      };
+
+      // ── Tap overlay: 通常=再生/停止, LIVE中=MARK ──
+      // タッチ端末のタップは上のジェスチャ処理(touchend)で扱う．
+      // clickはマウス操作(PC)用とし, タッチ直後の合成clickは無視して二重発火を防ぐ
+      function tapAction() {
+        liveMode ? markLive() : togglePlay();
+      }
+      G("tap-overlay").addEventListener("click", () => {
+        if (Date.now() - _lastTouchTs < 600) return;
+        tapAction();
+      });
+
+      // コマ送り/戻り
+      function stepF(d) {
+        if (!vW || liveMode) return;
+        if (playing) stopPlay();
+        seekToFrame(currentFrame + d);
+      }
+      G("btn-p1").addEventListener("click", () => stepF(-1));
+      G("btn-n1").addEventListener("click", () => stepF(1));
+      G("btn-p1").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        stepF(-1);
+      });
+      G("btn-n1").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        stepF(1);
+      });
+
+      // ── Record button（再生中でもクリックで即記録可能） ──
+      G("btn-rec").addEventListener("click", () => markFrame());
+      G("btn-rec").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        markFrame();
+      });
+
+      function markFrame() {
+        if (!vW) return;
+        if (markedFrames.some((x) => x.frame === currentFrame)) {
+          showToast("このフレームは記録済みです");
+          return;
+        }
+        markedFrames.push({ frame: currentFrame });
+        markedFrames.sort((a, b) => a.frame - b.frame);
+        refreshRecords();
+        const b = G("btn-rec");
+        b.classList.add("flash");
+        setTimeout(() => b.classList.remove("flash"), 180);
+        const fps = getFPS();
+        const el = markedFrames.length ? ((currentFrame - markedFrames[0].frame) / fps).toFixed(3) : "0.000";
+        showToast("記録: " + currentFrame + "f (" + el + "s)");
+      }
+
+      // ── Records ──
+      function getDistLabels() {
+        if (!selectedDist) return null;
+        const arr = DIST_LABELS[selectedDist];
+        return arr && arr.length ? arr : null;
+      }
+      function getFrameHeaders(maxLen) {
+        const dl = getDistLabels();
+        return Array.from({ length: maxLen }, (_, i) => (dl ? dl[i] || `Frame${i + 1}` : `Frame${i + 1}`));
+      }
+
+      function refreshRecords() {
+        if (liveMode) {
+          renderLiveMarks();
+          return;
+        }
+        const list = G("rec-list");
+        list.innerHTML = "";
+        G("rec-count").textContent = markedFrames.length;
+        const fps = getFPS(),
+          dl = getDistLabels();
+        const f0 = markedFrames.length ? markedFrames[0].frame : 0;
+        markedFrames.forEach((e, idx) => {
+          const isStart = idx === 0;
+          const item = document.createElement("div");
+          item.className = "rec-item" + (isStart ? " sf" : "");
+          const num = document.createElement("span");
+          num.className = "ri-idx";
+          num.textContent = isStart ? "ST" : idx;
+          const lbl = document.createElement("span");
+          lbl.className = "ri-lbl";
+          lbl.textContent = dl ? dl[idx - 1] || "F" + idx : isStart ? "Start" : "F" + idx;
+          const fr = document.createElement("span");
+          fr.className = "ri-frame";
+          fr.textContent = e.frame + "f";
+          // 追加: スタート基準の経過時間
+          const tm = document.createElement("span");
+          tm.className = "ri-time";
+          tm.textContent = ((e.frame - f0) / fps).toFixed(3) + "s";
+          // 追加: 区間時間（スプリット）
+          const lap = document.createElement("span");
+          lap.className = "ri-lap";
+          if (!isStart) lap.textContent = "+" + ((e.frame - markedFrames[idx - 1].frame) / fps).toFixed(3);
+          const del = document.createElement("button");
+          del.className = "ri-del";
+          del.textContent = "✕";
+          del.onclick = (ev) => {
+            ev.stopPropagation();
+            markedFrames.splice(idx, 1);
+            refreshRecords();
+          };
+          item.onclick = () => {
+            if (vW) seekToFrame(e.frame);
+          };
+          item.appendChild(num);
+          item.appendChild(lbl);
+          item.appendChild(fr);
+          item.appendChild(tm);
+          item.appendChild(lap);
+          item.appendChild(del);
+          list.appendChild(item);
+        });
+        updateGraphButton();
+      }
+
+      // ── Dist selector（修正: 変更しても入力済み公式タイムを消さない） ──
+      G("dist-sel").addEventListener("change", function () {
+        selectedDist = this.value;
+        updateTimePanel();
+        updateGraphButton();
+        refreshRecords();
+      });
+
+      // ── CSV ──
+      G("btn-save-csv").onclick = saveCSV;
+      function saveCSV() {
+        if (liveMode) {
+          saveLiveCSV();
+          return;
+        }
+        if (!vW) {
+          showToast("動画が読み込まれていません");
+          return;
+        }
+        const fps = getFPS();
+        const frames = markedFrames.map((e) => e.frame);
+        const first = frames.length ? frames[0] : null;
+        const rest = frames.slice(1);
+        const rows = [["Label", "Start", ...getFrameHeaders(Math.max(0, rest.length))]];
+        rows.push(["L0", first ?? "", ...rest]);
+        // 追加: 経過時間・区間時間の行
+        if (frames.length) {
+          rows.push(["Time(s)", ...frames.map((f) => ((f - frames[0]) / fps).toFixed(3))]);
+          rows.push(["Split(s)", "", ...frames.slice(1).map((f, i) => ((f - frames[i]) / fps).toFixed(3))]);
+        }
+        rows.push(["FPS", fps]);
+        const tf = selectedDist ? TIME_FIELDS[selectedDist] : null;
+        const lv = timeValues["0"] || {};
+        if (tf && tf.some((k) => lv[k])) {
+          rows.push([]);
+          rows.push(["--- 公式タイム ---"]);
+          rows.push(["項目", "L0"]);
+          for (const k of tf) rows.push([k, lv[k] || ""]);
+        }
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob(["\uFEFF" + rows.map((r) => r.join(",")).join("\n")], { type: "text/csv;charset=utf-8;" }));
+        a.download = (currentFileName || "video") + "_labels.csv";
+        a.click();
+        showToast("CSVを保存しました");
+      }
+      function saveLiveCSV() {
+        if (!liveMarks.length) {
+          showToast("MARKがありません");
+          return;
+        }
+        const rows = [["Index", "Time(s)", "Split(s)"]];
+        liveMarks.forEach((t, i) => rows.push([i + 1, t.toFixed(3), (i ? t - liveMarks[i - 1] : t).toFixed(3)]));
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob(["\uFEFF" + rows.map((r) => r.join(",")).join("\n")], { type: "text/csv;charset=utf-8;" }));
+        a.download = "live_marks_" + ts() + ".csv";
+        a.click();
+        showToast("LIVE MARKをCSV保存しました");
+      }
+
+      G("btn-load-csv").onclick = () => G("csvfi").click();
+      G("csvfi").onchange = () => {
+        if (G("csvfi").files[0]) importCSV(G("csvfi").files[0]);
+        G("csvfi").value = "";
+      };
+      // 修正: 旧版では公式タイム節の判定が「---」完全一致だったため
+      // 「--- 公式タイム ---」を検出できず, タイム値がフレームとして誤読込されていた
+      function importCSV(file) {
+        const r = new FileReader();
+        r.onload = (e) => {
+          const lines = e.target.result
+            .replace(/^\uFEFF/, "")
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter(Boolean);
+          if (!lines.length) return;
+          markedFrames = [];
+          let mode = "frames";
+          const lv = {};
+          const SKIP = ["Label", "Time(s)", "Split(s)", "FPS", "Index"];
+          for (const line of lines) {
+            const cols = line.split(",");
+            if (cols[0].startsWith("---")) {
+              mode = "times";
+              continue;
+            }
+            if (mode === "frames") {
+              if (SKIP.includes(cols[0])) continue;
+              for (let j = 1; j < cols.length; j++) {
+                const f = parseInt(cols[j]);
+                if (!isNaN(f) && f >= 0) markedFrames.push({ frame: f });
+              }
+            } else {
+              if (cols[0] === "項目" || !cols[0]) continue;
+              if (cols.length >= 2 && cols[1] !== "") lv[cols[0]] = cols[1];
+            }
+          }
+          markedFrames.sort((a, b) => a.frame - b.frame);
+          markedFrames = markedFrames.filter((e, i, a) => i === 0 || e.frame !== a[i - 1].frame);
+          // 追加: 公式タイムも復元
+          if (Object.keys(lv).length) {
+            timeValues["0"] = Object.assign(timeValues["0"] || {}, lv);
+          }
+          refreshRecords();
+          updateTimeBadge();
+          showToast("CSV読込: " + markedFrames.length + "件");
+        };
+        r.readAsText(file, "UTF-8");
+      }
+
+      function showConfirmClear() {
+        if (liveMode) {
+          liveMarks = [];
+          renderLiveMarks();
+          return;
+        }
+        if (!markedFrames.length) {
+          markedFrames = [];
+          refreshRecords();
+          return;
+        }
+        G("confirm-dialog").style.display = "flex";
+      }
+      G("btn-clear-all").addEventListener("click", showConfirmClear);
+      G("btn-clear-all").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showConfirmClear();
+      });
+      G("confirm-cancel").addEventListener("click", () => {
+        G("confirm-dialog").style.display = "none";
+      });
+      G("confirm-cancel").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        G("confirm-dialog").style.display = "none";
+      });
+      G("confirm-ok").addEventListener("click", () => {
+        G("confirm-dialog").style.display = "none";
+        markedFrames = [];
+        refreshRecords();
+      });
+      G("confirm-ok").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        G("confirm-dialog").style.display = "none";
+        markedFrames = [];
+        refreshRecords();
+      });
+
+      // ── Time modal ──
+      function updateTimePanel() {
+        const tf = selectedDist ? TIME_FIELDS[selectedDist] : null;
+        const btn = G("btn-time-open");
+        if (!tf) {
+          btn.style.display = "none";
+          return;
+        }
+        btn.style.display = "inline-flex";
+        updateTimeBadge();
+      }
+      function buildTimeFields() {
+        const tf = selectedDist ? TIME_FIELDS[selectedDist] : null;
+        const container = G("tp-fields");
+        container.innerHTML = "";
+        if (!tf) return;
+        if (!timeValues["0"]) timeValues["0"] = {};
+        const lv = timeValues["0"];
+        const block = document.createElement("div");
+        block.className = "tm-lane-block";
+        const hdr = document.createElement("div");
+        hdr.className = "tm-lane-hdr";
+        const nm = document.createElement("span");
+        nm.className = "tm-lane-name lc0";
+        nm.style.background = "rgba(0,0,0,.25)";
+        nm.textContent = "Lane 0";
+        const prog = document.createElement("span");
+        prog.className = "tm-lane-prog";
+        prog.id = "tm-prog-0";
+        hdr.appendChild(nm);
+        hdr.appendChild(prog);
+        block.appendChild(hdr);
+        const grid = document.createElement("div");
+        grid.className = "tp-grid";
+        for (const key of tf) {
+          const row = document.createElement("div");
+          row.className = "tp-row";
+          const lbl = document.createElement("span");
+          lbl.className = "tp-lbl";
+          lbl.textContent = key;
+          const inp = document.createElement("input");
+          inp.className = "tp-inp" + (lv[key] ? " filled" : "");
+          inp.type = "text";
+          inp.inputMode = "decimal";
+          inp.placeholder = "0.000";
+          inp.value = lv[key] || "";
+          inp.addEventListener("input", () => {
+            lv[key] = inp.value.trim();
+            inp.classList.toggle("filled", !!inp.value.trim());
+            updateLaneProg(tf);
+            updateTimeBadge();
+            updateModalProg(tf);
+          });
+          row.appendChild(lbl);
+          row.appendChild(inp);
+          grid.appendChild(row);
+        }
+        block.appendChild(grid);
+        container.appendChild(block);
+        updateLaneProg(tf);
+        updateModalProg(tf);
+      }
+      function updateLaneProg(tf) {
+        const el = G("tm-prog-0");
+        if (!el) return;
+        const lv = timeValues["0"] || {};
+        const f = tf.filter((k) => lv[k]).length;
+        el.innerHTML = "<em>" + f + "</em>/" + tf.length;
+      }
+      function updateModalProg(tf) {
+        const el = G("tm-progress");
+        if (!el || !tf) return;
+        const lv = timeValues["0"] || {};
+        const f = tf.filter((k) => lv[k]).length;
+        el.innerHTML = "入力済み: <em>" + f + "</em> / " + tf.length;
+      }
+      function updateTimeBadge() {
+        const tf = selectedDist ? TIME_FIELDS[selectedDist] : null;
+        const badge = G("btn-time-badge");
+        if (!tf) {
+          badge.style.display = "none";
+          return;
+        }
+        const lv = timeValues["0"] || {};
+        const f = tf.filter((k) => lv[k]).length;
+        if (f > 0) {
+          badge.style.display = "block";
+          badge.textContent = f + "/" + tf.length;
+        } else badge.style.display = "none";
+      }
+      G("btn-time-open").onclick = () => {
+        buildTimeFields();
+        G("time-modal-overlay").classList.add("open");
+      };
+      G("tm-close-btn").onclick = G("tm-done-btn").onclick = () => {
+        G("time-modal-overlay").classList.remove("open");
+        updateTimeBadge();
+      };
+      G("time-modal-overlay").onclick = (e) => {
+        if (e.target === G("time-modal-overlay")) {
+          G("time-modal-overlay").classList.remove("open");
+          updateTimeBadge();
+        }
+      };
+
+      // ── Graph（修正: 距離選択中でも記録2件以上なら表示） ──
+      function updateGraphButton() {
+        const btn = G("btn-graph");
+        const n = liveMode ? liveMarks.length : markedFrames.length;
+        btn.style.display = n >= 2 ? "inline-flex" : "none";
+      }
+      G("btn-graph").addEventListener("click", () => {
+        drawGraph();
+        G("graph-modal-overlay").classList.add("open");
+      });
+      G("btn-graph").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        drawGraph();
+        G("graph-modal-overlay").classList.add("open");
+      });
+      G("gm-close-btn").onclick = () => {
+        G("graph-modal-overlay").classList.remove("open");
+        G("graph-tooltip").style.display = "none";
+      };
+      G("graph-modal-overlay").onclick = (e) => {
+        if (e.target === G("graph-modal-overlay")) {
+          G("graph-modal-overlay").classList.remove("open");
+          G("graph-tooltip").style.display = "none";
+        }
+      };
+
+      function drawGraph() {
+        const canvas = G("graph-canvas");
+        const fps = getFPS();
+        let laps = [];
+        if (liveMode) {
+          for (let i = 1; i < liveMarks.length; i++) laps.push(liveMarks[i] - liveMarks[i - 1]);
+        } else {
+          const frames = markedFrames.map((e) => e.frame);
+          for (let i = 1; i < frames.length; i++) laps.push((frames[i] - frames[i - 1]) / fps);
+        }
+        if (laps.length < 1) {
+          G("gm-info").textContent = "記録が2件以上必要です";
+          return;
+        }
+        const W = Math.min(440, Math.round(window.innerWidth * 0.92));
+        const H = Math.round(W * 0.6);
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext("2d");
+        const P = { t: 28, r: 20, b: 46, l: 60 };
+        const pw = W - P.l - P.r,
+          ph = H - P.t - P.b,
+          n = laps.length;
+        const mn = Math.min(...laps) * 0.94,
+          mx = Math.max(...laps) * 1.06;
+        const tx = (i) => P.l + (n > 1 ? i / (n - 1) : 0.5) * pw;
+        const ty = (v) => P.t + ph - ((v - mn) / (mx - mn || 1)) * ph;
+        ctx.fillStyle = "#0d0e12";
+        ctx.fillRect(0, 0, W, H);
+        for (let i = 0; i <= 5; i++) {
+          const v = mn + ((mx - mn) * i) / 5,
+            y = ty(v);
+          ctx.strokeStyle = "#252630";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(P.l, y);
+          ctx.lineTo(W - P.r, y);
+          ctx.stroke();
+          ctx.fillStyle = "#6a6e88";
+          ctx.font = "9px monospace";
+          ctx.textAlign = "right";
+          ctx.fillText(v.toFixed(3) + "s", P.l - 4, y + 3);
+        }
+        for (let i = 0; i < n; i++) {
+          const x = tx(i);
+          ctx.strokeStyle = "#252630";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x, P.t);
+          ctx.lineTo(x, H - P.b);
+          ctx.stroke();
+          ctx.fillStyle = "#6a6e88";
+          ctx.font = "9px monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(String(i + 1), x, H - P.b + 12);
+        }
+        ctx.fillStyle = "#b8bcd0";
+        ctx.font = "10px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("区間", W / 2, H - 4);
+        ctx.save();
+        ctx.translate(12, H / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText("ラップ(s)", 0, 0);
+        ctx.restore();
+        const col = LANE_COLORS[0];
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 2.5;
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        laps.forEach((v, i) => {
+          const x = tx(i),
+            y = ty(v);
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        laps.forEach((v, i) => {
+          ctx.fillStyle = col;
+          ctx.beginPath();
+          ctx.arc(tx(i), ty(v), 5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        canvas._pts = laps.map((v, i) => ({ x: tx(i), y: ty(v), seg: i + 1, val: v }));
+        const cnt = liveMode ? liveMarks.length : markedFrames.length;
+        G("gm-info").textContent = (liveMode ? "LIVE " : "FPS: " + fps.toFixed(1) + "  ") + "記録: " + cnt + "件";
+      }
+
+      // タッチでツールチップ
+      G("graph-canvas").addEventListener(
+        "touchstart",
+        (e) => {
+          const canvas = G("graph-canvas"),
+            tip = G("graph-tooltip"),
+            pts = canvas._pts;
+          if (!pts) {
+            return;
+          }
+          const rect = canvas.getBoundingClientRect();
+          const t = e.touches[0];
+          const sx = canvas.width / rect.width,
+            sy = canvas.height / rect.height;
+          const mx = (t.clientX - rect.left) * sx,
+            my = (t.clientY - rect.top) * sy;
+          let best = null,
+            bd = Infinity;
+          for (const p of pts) {
+            const d = Math.hypot(p.x - mx, p.y - my);
+            if (d < bd) {
+              bd = d;
+              best = p;
+            }
+          }
+          if (!best || bd > 35) {
+            tip.style.display = "none";
+            return;
+          }
+          tip.innerHTML = "区間: " + best.seg + "<br>" + best.val.toFixed(4) + " s";
+          const dx = best.x / sx,
+            dy = best.y / sy;
+          tip.style.left = (dx > rect.width / 2 ? dx - 100 : dx + 14) + "px";
+          tip.style.top = (dy > rect.height / 2 ? dy - 64 : dy + 8) + "px";
+          tip.style.display = "block";
+          e.preventDefault();
+        },
+        { passive: false },
+      );
+      G("graph-canvas").addEventListener("touchend", () => {
+        setTimeout(() => (G("graph-tooltip").style.display = "none"), 1800);
+      });
+
+      // ══════════ LIVE MODE（リアルタイム分析） ══════════
+      function toggleLive() {
+        liveMode ? exitLive(false) : enterLive();
+      }
+      G("btn-live").addEventListener("click", toggleLive);
+      G("btn-live").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleLive();
+      });
+
+      async function enterLive() {
+        if (liveMode) return;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          showToast("このブラウザ/環境ではカメラ非対応です（HTTPSが必要）");
+          return;
+        }
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            // 1080p/60fpsを要求（端末が非対応なら自動で近い設定に落ちる）
+            video: { facingMode: "environment", frameRate: { ideal: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+            audio: false,
+          });
+        } catch (err) {
+          showToast("カメラを起動できません: " + err.name);
+          return;
+        }
+        if (playing) stopPlay();
+        liveMode = true;
+        G("vp").classList.add("live-view");
+        recording = false;
+        recordedBlob = null;
+        liveMarks = [];
+        _prevHadVideo = vW > 0;
+        _prevFrame = currentFrame;
+        ++_detToken; // FPS自動検出チェーンを停止
+        ve.onloadedmetadata = null;
+        ve.srcObject = mediaStream;
+        ve.muted = true;
+        ve.play();
+        const tr = mediaStream.getVideoTracks()[0];
+        const st = tr.getSettings ? tr.getSettings() : null;
+        if (st && st.frameRate) fpsEl.value = Math.round(st.frameRate);
+        resetZoom();
+        G("dz").style.display = "none";
+        G("tap-overlay").style.display = "block";
+        G("live-badge").style.display = "block";
+        G("live-rec-float").style.display = "block";
+        G("live-rec-float").textContent = "⏺ REC";
+        G("ctrl").style.display = "none";
+        // 修正: display="" だとCSSの display:none に戻り, タイマー・MARK・
+        // 停止後の「動画保存/解析へ」がすべて非表示になっていた
+        G("live-ctrl").style.display = "block";
+        G("lv-after").style.display = "none";
+        G("bottom").style.display = "";
+        G("btn-live").textContent = "✕ LIVE終了";
+        G("btn-live").classList.add("on");
+        G("lv-timer").textContent = "0:00.000";
+        G("lv-timer").classList.remove("rec");
+        renderLiveMarks();
+        updateGraphButton();
+        showToast("LIVEモード: 撮影開始→画面タップ/MARKで記録");
+      }
+
+      function exitLive(analyze) {
+        if (!liveMode) return;
+        const marks = liveMarks.slice();
+        const finish = () => {
+          if (mediaStream) {
+            mediaStream.getTracks().forEach((t) => t.stop());
+            mediaStream = null;
+          }
+          ve.srcObject = null;
+          ve.muted = false;
+          liveMode = false;
+          G("live-badge").style.display = "none";
+          G("live-rec-float").style.display = "none";
+          G("live-rec-float").textContent = "⏺ REC";
+          G("vp").classList.remove("live-view");
+          resetZoom();
+          G("ctrl").style.display = "";
+          G("live-ctrl").style.display = "none";
+          G("btn-live").textContent = "📹 LIVE";
+          G("btn-live").classList.remove("on");
+          if (analyze && recordedBlob) {
+            const url = URL.createObjectURL(recordedBlob);
+            loadVideoFromURL(url, "live_" + ts(), () => {
+              // 秒→フレーム変換（録画開始 = 動画の0秒）
+              markedFrames = marks.map((t) => ({ frame: Math.max(0, Math.min(totalFrames - 1, Math.round(t * nativeFps))) }));
+              markedFrames.sort((a, b) => a.frame - b.frame);
+              markedFrames = markedFrames.filter((e, i, a) => i === 0 || e.frame !== a[i - 1].frame);
+              refreshRecords();
+              showToast("MARK " + markedFrames.length + "件をフレームに変換しました");
+            });
+          } else if (_prevHadVideo && _objUrl) {
+            const keep = _objUrl;
+            _objUrl = null;
+            loadVideoFromURL(keep, currentFileName, () => {
+              seekToFrame(_prevFrame);
+            });
+          } else {
+            vW = 0;
+            G("dz").style.display = "flex";
+            G("tap-overlay").style.display = "none";
+            G("ctd").textContent = "0:00.000";
+            G("ctd2").textContent = "0:00";
+            G("hf").textContent = "—";
+            G("ht").textContent = "—";
+          }
+          refreshRecords();
+        };
+        if (recording && mediaRecorder) {
+          mediaRecorder.addEventListener("stop", finish, { once: true });
+          try {
+            mediaRecorder.stop();
+          } catch (_) {
+            finish();
+          }
+          recording = false;
+        } else finish();
+      }
+
+      function pickMime() {
+        if (!window.MediaRecorder) return null;
+        const c = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
+        for (const m of c) if (MediaRecorder.isTypeSupported(m)) return m;
+        return "";
+      }
+      function startRec() {
+        if (!mediaStream) return;
+        recChunks = [];
+        liveMarks = [];
+        recordedBlob = null;
+        // 修正: ここで「⏹ STOP」に変えると録画開始失敗時に表示がズレるため,
+        // 文言変更は onstart / onstop で実状態と同期させる
+        G("lv-after").style.display = "none";
+        const m = pickMime();
+        if (m === null) {
+          showToast("この環境は録画(MediaRecorder)非対応です");
+          return;
+        }
+        try {
+          // ビットレートを明示指定（既定値は低く, 動きの速い場面でブロックノイズが出るため）
+          const opts = m ? { mimeType: m } : {};
+          opts.videoBitsPerSecond = 8000000; // 8Mbps
+          mediaRecorder = new MediaRecorder(mediaStream, opts);
+        } catch (err) {
+          // videoBitsPerSecond非対応環境向けフォールバック
+          try {
+            mediaRecorder = new MediaRecorder(mediaStream, m ? { mimeType: m } : {});
+          } catch (err2) {
+            showToast("録画を開始できません");
+            return;
+          }
+        }
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size) recChunks.push(e.data);
+        };
+        mediaRecorder.onstart = () => {
+          recStartT = performance.now();
+          recording = true;
+          G("btn-lv-rec").textContent = "⏹ 停止";
+          G("btn-lv-rec").classList.add("on");
+          G("live-rec-float").textContent = "⏹ STOP";
+          G("live-rec-float").classList.add("on");
+          G("lv-timer").classList.add("rec");
+          renderLiveMarks();
+          liveTick();
+        };
+        mediaRecorder.onstop = () => {
+          recordedBlob = new Blob(recChunks, { type: (mediaRecorder && mediaRecorder.mimeType) || "video/webm" });
+          recording = false;
+          G("btn-lv-rec").textContent = "⏺ 撮影開始";
+          G("btn-lv-rec").classList.remove("on");
+          G("live-rec-float").textContent = "⏺ REC";
+          G("live-rec-float").classList.remove("on");
+          G("lv-timer").classList.remove("rec");
+          if (liveMode) {
+            G("lv-after").style.display = "flex";
+            showToast("録画停止: MARK " + liveMarks.length + "件");
+          }
+        };
+        mediaRecorder.start();
+      }
+      function stopRec() {
+        if (mediaRecorder && recording) {
+          try {
+            mediaRecorder.stop();
+          } catch (_) {}
+        }
+      }
+      G("btn-lv-rec").addEventListener("click", () => (recording ? stopRec() : startRec()));
+      G("btn-lv-rec").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        recording ? stopRec() : startRec();
+      });
+
+      function liveTick() {
+        if (!recording) return;
+        G("lv-timer").textContent = fmtSec((performance.now() - recStartT) / 1000);
+        requestAnimationFrame(liveTick);
+      }
+
+      function markLive() {
+        if (!liveMode) return;
+        if (!recording) {
+          showToast("先に「⏺ 撮影開始」を押してください");
+          return;
+        }
+        const t = (performance.now() - recStartT) / 1000;
+        liveMarks.push(t);
+        renderLiveMarks();
+        const b = G("btn-lv-mark");
+        b.classList.add("flash");
+        setTimeout(() => b.classList.remove("flash"), 180);
+        showToast("MARK " + liveMarks.length + ": " + t.toFixed(3) + "s");
+      }
+      G("btn-lv-mark").addEventListener("click", markLive);
+      G("btn-lv-mark").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        markLive();
+      });
+
+      function renderLiveMarks() {
+        const list = G("rec-list");
+        list.innerHTML = "";
+        G("rec-count").textContent = liveMarks.length;
+        const lc = G("lv-count");
+        if (lc) lc.innerHTML = "MARK <em>" + liveMarks.length + "</em>";
+        const t0 = liveMarks.length ? liveMarks[0] : 0;
+        liveMarks.forEach((t, i) => {
+          const isStart = i === 0;
+          const item = document.createElement("div");
+          item.className = "rec-item" + (isStart ? " sf" : "");
+          const num = document.createElement("span");
+          num.className = "ri-idx";
+          num.textContent = isStart ? "ST" : i;
+          const lbl = document.createElement("span");
+          lbl.className = "ri-lbl";
+          lbl.textContent = isStart ? "Start" : "M" + i;
+          const fr = document.createElement("span");
+          fr.className = "ri-frame";
+          fr.textContent = t.toFixed(2);
+          const tm = document.createElement("span");
+          tm.className = "ri-time";
+          tm.textContent = (t - t0).toFixed(3) + "s";
+          const lap = document.createElement("span");
+          lap.className = "ri-lap";
+          if (!isStart) lap.textContent = "+" + (t - liveMarks[i - 1]).toFixed(3);
+          const del = document.createElement("button");
+          del.className = "ri-del";
+          del.textContent = "✕";
+          del.onclick = (ev) => {
+            ev.stopPropagation();
+            liveMarks.splice(i, 1);
+            renderLiveMarks();
+          };
+          item.appendChild(num);
+          item.appendChild(lbl);
+          item.appendChild(fr);
+          item.appendChild(tm);
+          item.appendChild(lap);
+          item.appendChild(del);
+          list.appendChild(item);
+        });
+        updateGraphButton();
+      }
+
+      G("btn-lv-save").addEventListener("click", saveLiveVideo);
+      G("btn-lv-save").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        saveLiveVideo();
+      });
+      function saveLiveVideo() {
+        if (!recordedBlob) {
+          showToast("録画データがありません");
+          return;
+        }
+        const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(recordedBlob);
+        a.download = "live_" + ts() + "." + ext;
+        a.click();
+        showToast("動画を保存しました");
+      }
+      G("btn-lv-analyze").addEventListener("click", () => exitLive(true));
+      G("btn-lv-analyze").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        exitLive(true);
+      });
+
+      // ── Toast ──
+      let _tt;
+      function showToast(msg) {
+        const t = G("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(_tt);
+        _tt = setTimeout(() => t.classList.remove("show"), 2200);
+      }
+
+      G("live-rec-float").addEventListener("click", () => {
+        if (Date.now() - _lastTouchTs < 600) return;
+        recording ? stopRec() : startRec();
+      });
+      G("live-rec-float").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        _lastTouchTs = Date.now();
+        recording ? stopRec() : startRec();
+      });
+      refreshRecords();
+      updateGraphButton();
+    </script>
+  </body>
+</html>
